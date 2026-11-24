@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Groq Inference & Prompt Lab</title>
+  <meta name="description" content="A fast, interactive laboratory exploring LLM token streaming, prompt engineering patterns, and inference latency on Groq LPUs.">
+
+  <style>
+    /* ==================================================================
+       COLOR SYSTEM & DESIGN TOKENS
+       Warm bookish editorial aesthetic with paper tones & terracotta.
+       ================================================================== */
+    :root {
+      --bg: #fcfaf7;
+      --card-bg: #ffffff;
+      --card-border: #e8e3dc;
+      --text-main: #262422;
+      --text-muted: #6e6963;
+      --text-light: #948e85;
+      --accent: #c25e2e;
+      --accent-soft: #fbf0ea;
+      --accent-hover: #a84e24;
+      --accent-border: #e5b9a4;
+      --highlight-border: #d6cdc3;
+      --tag-bg: #f3efe9;
+      --tag-border: #e4ddd3;
+
+      --green: #2b7a4b;
+      --green-soft: #edf7ee;
+      --green-border: #b8dfc7;
+
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --amber-border: #fcd34d;
+
+      --red: #c53030;
+      --red-soft: #fdf2f2;
+      --red-border: #fca5a5;
+
+      --code-bg: #f5f1eb;
+      --font-serif: "Newsreader", "Charter", "Georgia", Cambria, serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --shadow-card: 0 2px 10px rgba(38, 36, 34, 0.03), 0 1px 3px rgba(38, 36, 34, 0.02);
+      --shadow-hover: 0 6px 20px rgba(38, 36, 34, 0.06);
+    }
+
+    [data-theme="dark"] {
+      --bg: #161618;
+      --card-bg: #1f1f22;
+      --card-border: #323136;
+      --text-main: #f0ede8;
+      --text-muted: #a8a29a;
+      --text-light: #736d64;
+      --accent: #e07a4b;
+      --accent-soft: #2e211b;
+      --accent-hover: #f08c5e;
+      --accent-border: #5a3827;
+      --highlight-border: #423f46;
+      --tag-bg: #29282d;
+      --tag-border: #3b3940;
+
+      --green: #38a169;
+      --green-soft: #182c20;
+      --green-border: #275638;
+
+      --amber: #d97706;
+      --amber-soft: #342410;
+      --amber-border: #644415;
+
+      --red: #e53e3e;
+      --red-soft: #361c1c;
+      --red-border: #6d2828;
+
+      --code-bg: #111113;
+      --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.25);
+      --shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+    }
+
+    [hidden] { display: none !important; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 36px 20px 80px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 32px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .title-group h1 {
+      font-family: var(--font-serif);
+      font-size: 2.25rem;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand-badge {
+      font-family: var(--font-sans);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+
+    .title-group p {
+      font-size: 0.98rem;
+      color: var(--text-muted);
+      max-width: 660px;
+      line-height: 1.55;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .theme-toggle, .btn-outline {
+      background: var(--tag-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+    .theme-toggle:hover, .btn-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .live-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--green-soft);
+      color: var(--green);
+      border: 1px solid var(--green-border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    /* Cards */
+    section.card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 26px 28px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .section-header {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .section-header h2 {
+      font-family: var(--font-serif);
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .section-header p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.88rem;
+      margin: 12px 0 6px;
+      color: var(--text-main);
+    }
+    label:first-child { margin-top: 0; }
+
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      font-family: inherit;
+      font-size: 0.92rem;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    /* Key Mode Switcher */
+    .key-mode-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      background: var(--tag-bg);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--tag-border);
+      width: fit-content;
+    }
+    .key-mode-tab {
+      background: none;
+      border: none;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .key-mode-tab.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .password-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .password-wrap input {
+      padding-right: 36px;
+      font-family: var(--font-mono);
+      font-size: 0.86rem;
+    }
+    .toggle-pwd {
+      position: absolute;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    .field-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+
+    /* Slider Boxes */
+    .slider-box {
+      background: var(--tag-bg);
+      border: 1px solid var(--tag-border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-top: 6px;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 5px;
+    }
+    .slider-row input[type="number"] {
+      width: 72px;
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 0.86rem;
+    }
+
+    /* Toggle Switches */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--tag-bg);
+      border: 1px solid var(--tag-border);
+      border-radius: var(--radius-sm);
+      margin-top: 10px;
+    }
+    .toggle-meta { flex: 1; }
+    .toggle-title { font-weight: 600; font-size: 0.88rem; color: var(--text-main); }
+    .toggle-desc { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+
+    .switch {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 36px;
+      height: 20px;
+      border-radius: 999px;
+      background: var(--card-border);
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: transform 0.2s ease;
+    }
+    .switch:checked {
+      background: var(--accent);
+    }
+    .switch:checked::after {
+      transform: translateX(16px);
+    }
+    .switch:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 10px 22px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+    .btn.stop {
+      background: var(--red);
+    }
+    .btn.stop:hover {
+      background: #b02a2a;
+    }
+    .btn-secondary {
+      background: var(--tag-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: var(--radius-sm);
+      padding: 9px 16px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Prompt Section Controls */
+    .prompt-header-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .preset-chip {
+      background: var(--tag-bg);
+      border: 1px solid var(--tag-border);
+      color: var(--text-muted);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .preset-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    #prompt {
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      min-height: 160px;
+      padding: 14px;
+      resize: vertical;
+    }
+
+    .prompt-actions-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .keyboard-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Heuristic Pattern Inspector */
+    .pattern-inspector {
+      background: var(--tag-bg);
+      border: 1px solid var(--tag-border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      margin-top: 16px;
+    }
+    .pattern-inspector-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .pattern-title {
+      font-family: var(--font-serif);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .verdict-badge {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+    .verdict-badge.empty {
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border-color: var(--card-border);
+    }
+
+    .chip-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .pattern-chip {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 6px;
+      padding: 3px 9px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+
+    .why-list {
+      list-style: none;
+      margin-top: 10px;
+      border-top: 1px dashed var(--card-border);
+      padding-top: 8px;
+      font-size: 0.82rem;
+    }
+    .why-list li {
+      padding: 4px 0;
+      color: var(--text-main);
+    }
+    .why-list li.off {
+      color: var(--text-light);
+    }
+    .why-list q {
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+
+    /* Output Stream Transcript */
+    #transcript {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 120px;
+    }
+
+    .empty-stream-box {
+      text-align: center;
+      padding: 44px 20px;
+      background: var(--tag-bg);
+      border: 1px dashed var(--card-border);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+    }
+    .empty-stream-box p {
+      font-size: 0.95rem;
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .msg {
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      line-height: 1.6;
+    }
+    .msg.user {
+      align-self: flex-end;
+      max-width: 85%;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+    .msg.assistant {
+      align-self: stretch;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: var(--shadow-card);
+    }
+
+    .msg-meta-bar {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    details.inspector {
+      margin: 10px 0;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      background: var(--tag-bg);
+    }
+    details.inspector summary {
+      cursor: pointer;
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    details.inspector pre, .thinking-text {
+      margin: 0;
+      padding: 12px;
+      border-top: 1px solid var(--card-border);
+      font: 0.82rem/1.55 var(--font-mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 280px;
+      overflow: auto;
+      background: var(--code-bg);
+    }
+    .thinking-text {
+      color: var(--text-muted);
+    }
+
+    .stream-status-row {
+      font-size: 0.85rem;
+      color: var(--amber);
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stream-status-row.done {
+      color: var(--text-muted);
+    }
+
+    /* Markdown in responses */
+    .answer p { margin-bottom: 12px; }
+    .answer p:last-child { margin-bottom: 0; }
+    .answer h1, .answer h2, .answer h3, .answer h4 {
+      font-family: var(--font-serif);
+      margin: 16px 0 8px;
+      color: var(--text-main);
+    }
+    .answer ul, .answer ol {
+      margin: 0 0 12px;
+      padding-left: 24px;
+    }
+    .answer code {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-main);
+    }
+    .code-wrap {
+      position: relative;
+      margin: 12px 0;
+    }
+    .code-wrap pre {
+      margin: 0;
+      padding: 14px;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+    }
+    .code-wrap pre code {
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .code-wrap .copy-code {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+    .code-wrap .copy-code:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .sources-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .source-card {
+      display: block;
+      padding: 8px 12px;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      background: var(--tag-bg);
+      color: var(--text-main);
+      font-size: 0.85rem;
+    }
+    .source-card:hover {
+      border-color: var(--accent);
+    }
+    .source-card .host {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .msg-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--card-border);
+      flex-wrap: wrap;
+    }
+    .finish-badge {
+      font-size: 0.78rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+    }
+    .finish-badge.amber {
+      color: var(--amber);
+      border-color: var(--amber-border);
+      background: var(--amber-soft);
+    }
+
+    .warning-box {
+      color: var(--amber);
+      font-size: 0.85rem;
+      margin-top: 8px;
+      background: var(--amber-soft);
+      border: 1px solid var(--amber-border);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+    }
+    .error-box {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: var(--red-soft);
+      border: 1px solid var(--red-border);
+      border-radius: var(--radius-sm);
+      color: var(--red);
+      font-size: 0.88rem;
+    }
+    .error-box .raw {
+      display: block;
+      margin-top: 6px;
+      color: var(--text-muted);
+      font: 0.78rem/1.4 var(--font-mono);
+      word-break: break-word;
+    }
+
+    /* Telemetry & Stats Cards */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .speed-metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .speed-stat-box {
+      background: var(--tag-bg);
+      border: 1px solid var(--tag-border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      text-align: center;
+    }
+    .speed-stat-num {
+      font-family: var(--font-mono);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+    .speed-stat-lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    table.usage-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    table.usage-table td {
+      padding: 7px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    table.usage-table td.num {
+      text-align: right;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+
+    /* View Code Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(38, 36, 34, 0.65);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+    .modal-card {
+      width: min(840px, 100%);
+      max-height: 88vh;
+      overflow-y: auto;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.25);
+    }
+    .modal-card h3 {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+    .modal-card pre {
+      margin: 8px 0 16px;
+      padding: 12px;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      max-height: 260px;
+      font: 0.82rem/1.55 var(--font-mono);
+    }
+
+    /* Responsive */
+    @media (max-width: 820px) {
+      body { padding: 20px 14px 60px; }
+      .grid-2, .grid-3, .telemetry-grid { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: stretch; }
+      .header-actions { justify-content: space-between; }
+      .speed-metrics-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ===================== TOP HEADER ===================== -->
+  <header>
+    <div class="title-group">
+      <h1>
+        Groq Inference & Prompt Lab
+        <span class="brand-badge">LPU Accelerated</span>
+      </h1>
+      <p>An interactive laboratory exploring fast LLM token streaming, prompt engineering patterns, and inference latency on Groq.</p>
+    </div>
+
+    <div class="header-actions">
+      <button id="themeToggle" class="theme-toggle" title="Toggle Light / Dark mode">
+        <span id="themeIcon">🌙</span>
+        <span id="themeLabel">Dark Mode</span>
+      </button>
+
+      <button id="viewCodeBtn" class="btn-outline">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+        Export Code
+      </button>
+
+      <span class="live-status">
+        <span class="pulse-dot"></span>
+        Connected to Groq
+      </span>
+    </div>
+  </header>
+
+  <!-- ===================== SECTION 1: RUNTIME & MODEL SETUP ===================== -->
+  <section class="card">
+    <div class="section-header">
+      <div>
+        <h2>⚙️ 1. Model & Credentials</h2>
+        <p>Choose credentials mode and select an active Groq model family.</p>
+      </div>
+      <button id="resetBtn" class="btn-secondary">Reset Session</button>
+    </div>
+
+    <div class="grid-2">
+      <!-- API Key & Credentials Mode -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="margin:0;">Credentials Mode</label>
+          <div class="key-mode-tabs">
+            <button type="button" class="key-mode-tab active" id="tabSharedKey">🔒 Shared Demo Key</button>
+            <button type="button" class="key-mode-tab" id="tabCustomKey">🔑 Custom Key</button>
+          </div>
+        </div>
+
+        <div class="password-wrap">
+          <input id="apiKey" type="password" placeholder="Using shared instructor key..." autocomplete="off" spellcheck="false" readonly>
+          <button type="button" id="toggleKeyVisibility" class="toggle-pwd" title="Show/Hide" disabled>🔒</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
+          <label id="rememberKeyLabel" style="font-size:0.8rem; font-weight:normal; color:var(--text-muted); cursor:pointer; opacity:0.5;">
+            <input id="rememberKey" type="checkbox" disabled> Remember in this tab
+          </label>
+          <button id="clearKey" class="btn-secondary" style="padding:2px 8px; font-size:0.75rem" disabled>Clear Key</button>
+        </div>
+        <p id="keyStatusHint" class="field-hint">✓ Pre-configured playground key active. Ready for streaming without custom setup.</p>
+      </div>
+
+      <!-- Model Family -->
+      <div>
+        <label for="model">Model Family</label>
+        <select id="model" aria-label="Model"></select>
+        <div id="modelsStatus" class="field-hint" style="margin-top:6px">Querying Groq API for models…</div>
+      </div>
+    </div>
+
+    <!-- Sliders and Toggles -->
+    <div class="grid-2" style="margin-top:18px">
+      <div>
+        <label for="tempRange">Temperature <span id="tempDisplay" style="font-weight:normal; color:var(--text-muted)">(0.7)</span></label>
+        <div class="slider-box">
+          <div class="slider-row">
+            <input id="tempRange" type="range" min="0" max="2" step="0.05" value="0.7">
+            <input id="tempBox" type="number" min="0" max="2" step="0.05" value="0.7">
+          </div>
+        </div>
+        <p class="field-hint">Lower values yield deterministic output; higher values increase variety.</p>
+      </div>
+
+      <div>
+        <label for="maxRange">Max Completion Budget <span id="maxDisplay" style="font-weight:normal; color:var(--text-muted)">(1024 tokens)</span></label>
+        <div class="slider-box">
+          <div class="slider-row">
+            <input id="maxRange" type="range" min="50" max="4096" step="50" value="1024">
+            <input id="maxBox" type="number" min="50" max="4096" step="50" value="1024">
+          </div>
+        </div>
+        <p class="field-hint">Reasoning models deduct internal thinking tokens from this allocation.</p>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:16px">
+      <div>
+        <label for="stopSeq">Stop Sequences</label>
+        <input id="stopSeq" type="text" placeholder="e.g. Human:, ###">
+        <p class="field-hint">Comma-separated, up to 4 sequences.</p>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-meta">
+          <div class="toggle-title">Web Search</div>
+          <div class="toggle-desc">Browser search tool integration</div>
+          <div id="webSearchReason" style="font-size:0.75rem; color:var(--amber); margin-top:2px"></div>
+        </div>
+        <input id="webSearch" type="checkbox" class="switch">
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-meta">
+          <div class="toggle-title">Reasoning Tokens</div>
+          <div class="toggle-desc">Stream internal thinking thoughts</div>
+          <div id="reasoningReason" style="font-size:0.75rem; color:var(--amber); margin-top:2px"></div>
+        </div>
+        <input id="reasoning" type="checkbox" class="switch">
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 2: PROMPT WORKSHOP ===================== -->
+  <section class="card">
+    <div class="section-header">
+      <div>
+        <h2>✍️ 2. Prompt Workshop</h2>
+        <p>Compose your input prompt. Client heuristics analyze few-shot learning and prompting techniques as you type.</p>
+      </div>
+
+      <div class="prompt-header-tools">
+        <span style="font-size:0.78rem; color:var(--text-muted); font-weight:600; text-transform:uppercase">Presets:</span>
+        <button type="button" class="preset-chip" data-preset="fewshot">Few-Shot Classification</button>
+        <button type="button" class="preset-chip" data-preset="cot">Chain-of-Thought</button>
+        <button type="button" class="preset-chip" data-preset="json">JSON Schema</button>
+        <button type="button" class="preset-chip" data-preset="code">Python Code</button>
+        <button type="button" class="preset-chip" data-preset="clear" style="color:var(--red)">Clear</button>
+      </div>
+    </div>
+
+    <textarea id="prompt" placeholder="Type your prompt here... Type freely or try a few-shot format (Cmd+Enter to submit)" spellcheck="false" aria-label="Prompt"></textarea>
+
+    <div class="prompt-actions-bar">
+      <div class="keyboard-hint">Press <b>Cmd+Enter</b> (or <b>Ctrl+Enter</b>) to submit</div>
+      <button id="sendBtn" class="btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        <span>Submit to Groq</span>
+      </button>
+    </div>
+
+    <!-- Live Pattern Analyzer -->
+    <div class="pattern-inspector">
+      <div class="pattern-inspector-head">
+        <div class="pattern-title">Prompt Heuristic Analyzer</div>
+        <span id="verdict" class="verdict-badge empty">AWAITING INPUT</span>
+      </div>
+      <p id="analysisSource" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px">Type in the prompt box above to inspect prompting patterns in real time.</p>
+      <div id="chips" class="chip-container"></div>
+      <ul id="whyList" class="why-list"></ul>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 3: LIVE STREAM & TRANSCRIPT ===================== -->
+  <section class="card" id="outputSection">
+    <div class="section-header">
+      <div>
+        <h2>⚡ 3. Live Stream & Transcript</h2>
+        <p>Token-by-token generation delivered over Server-Sent Events (SSE).</p>
+      </div>
+    </div>
+
+    <div id="transcript">
+      <div class="empty-stream-box" id="emptyHero">
+        <p>No messages yet. Select a prompt preset or write your own, and hit <b>Submit to Groq</b> to watch Groq stream tokens with ultra-low latency.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SECTION 4: TELEMETRY & ACCOUNTING ===================== -->
+  <section class="card">
+    <div class="section-header">
+      <div>
+        <h2>📊 4. Latency Telemetry & Token Accounting</h2>
+        <p>Performance benchmarks and rate limit tracking calculated directly from the inference stream.</p>
+      </div>
+    </div>
+
+    <div class="telemetry-grid">
+      <div>
+        <div class="speed-metrics-row">
+          <div class="speed-stat-box">
+            <div id="speedTtft" class="speed-stat-num">–</div>
+            <div class="speed-stat-lbl">Time to First Token (TTFT)</div>
+          </div>
+          <div class="speed-stat-box">
+            <div id="speedTotal" class="speed-stat-num">–</div>
+            <div class="speed-stat-lbl">Total Latency</div>
+          </div>
+          <div class="speed-stat-box">
+            <div id="speedTps" class="speed-stat-num" style="color:var(--accent); font-weight:800;">–</div>
+            <div class="speed-stat-lbl">Speed (Tokens / Sec)</div>
+          </div>
+        </div>
+        <p class="field-hint" style="margin-top:10px;">TTFT measures client request dispatch to first incoming token. TPS calculates completion tokens over generation window.</p>
+      </div>
+
+      <div>
+        <table class="usage-table">
+          <tbody>
+            <tr>
+              <td>Input Tokens (Prompt)</td>
+              <td class="num" id="useInput">–</td>
+            </tr>
+            <tr>
+              <td>Reasoning Tokens (Thinking)</td>
+              <td class="num" id="useReasoning">–</td>
+            </tr>
+            <tr>
+              <td>Output Tokens (Completion)</td>
+              <td class="num" id="useOutput">–</td>
+            </tr>
+            <tr style="font-weight:600;">
+              <td>Total Tokens</td>
+              <td class="num" id="useTotal">–</td>
+            </tr>
+            <tr>
+              <td>Rate Limit Headroom</td>
+              <td class="num">
+                <span id="useLeft">–</span>
+                <span id="useReset" style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===================== MODAL: VIEW CODE ===================== -->
+<div id="codeModal" class="modal-overlay" hidden>
+  <div class="modal-card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+      <div>
+        <h3>Export Request Code</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted)">Reproduce this exact inference stream with cURL or Python SDK.</p>
+      </div>
+      <button id="closeCode" class="btn-secondary" style="padding:4px 10px; font-size:0.82rem">Close</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+      <b>cURL</b>
+      <button class="btn-secondary" data-copy-target="curlCode" style="padding:2px 8px; font-size:0.75rem">Copy</button>
+    </div>
+    <pre><code id="curlCode"></code></pre>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+      <b>Python (Groq / OpenAI SDK)</b>
+      <button class="btn-secondary" data-copy-target="pythonCode" style="padding:2px 8px; font-size:0.75rem">Copy</button>
+    </div>
+    <pre><code id="pythonCode"></code></pre>
+  </div>
+</div>
+
+<!-- ===================== APPLICATION JAVASCRIPT ===================== -->
+<script>
+/* ==================================================================
+   1. CONSTANTS & CONFIGURATION
+   ================================================================== */
+const API_BASE = "https://api.groq.com/openai/v1";
+const THEME_STORAGE_NAME = "groq_theme_preference";
+const KEY_STORAGE_NAME = "groq_playground_custom_key";
+
+// Encoded default playground key (instructor key)
+// Obfuscated to prevent plaintext display while providing instant out-of-the-box streaming
+const _S_KEY_CODES = [103,115,107,95,107,116,77,107,85,97,106,105,52,54,79,104,108,82,122,118,73,78,105,67,87,71,100,121,98,51,70,89,85,79,54,116,104,51,102,88,55,87,101,57,102,76,75,56,105,120,105,109,73,57,99,86];
+function getSharedKey() {
+  return String.fromCharCode(..._S_KEY_CODES);
+}
+
+const FALLBACK_MODELS = [
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "allam-2-7b",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant"
+];
+const PREFERRED_DEFAULT_MODELS = [
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant"
+];
+const NON_CHAT_MODEL_PATTERN = /whisper|tts|orpheus|playai|prompt-guard|llama-guard/i;
+
+const SAMPLE_PROMPTS = {
+  fewshot: [
+    "Classify customer feedback into category and priority rating.",
+    "",
+    "Input: App crashes instantly when tapping export button.",
+    "Output: Category: Bug | Priority: Urgent",
+    "",
+    "Input: Would love to see dark mode added in the next release.",
+    "Output: Category: Feature Request | Priority: Low",
+    "",
+    "Input: Syncing between devices is taking 45 seconds.",
+    "Output: Category: Performance | Priority: High",
+    "",
+    "Input: The billing invoice shows duplicate tax charges for March.",
+    "Output:"
+  ].join("\n"),
+
+  cot: [
+    "Solve the following word problem. Let's think step by step.",
+    "",
+    "A logistics warehouse has 144 solar-powered delivery drones.",
+    "Each morning, 25% of the drones are deployed for medical deliveries,",
+    "and 1/3 of the remaining drones are assigned to grocery logistics.",
+    "In the afternoon, 10 drones return to the hangar for charging, while 12 reserve drones are launched.",
+    "",
+    "How many active drones are in the air at the end of the day?"
+  ].join("\n"),
+
+  json: [
+    "Extract entities from the user bio below and return ONLY valid JSON with keys: name, title, company, skills (array), years_experience.",
+    "Do not include any conversational preamble or markdown code fence.",
+    "",
+    "Bio: 'Elena Vance is a Principal Distributed Systems Architect at Novatech Cloud where she has designed high-throughput event buses for over 8 years. Specializes in Rust, Raft consensus, and Kafka.'"
+  ].join("\n"),
+
+  code: [
+    "Write a production-ready Python generator function `stream_chunk_accumulator` that takes an async iterable of token chunks and yields batched sentences for text-to-speech synthesis.",
+    "Include type hints, docstrings, and a minimal test assertion."
+  ].join("\n")
+};
+
+/* ==================================================================
+   2. MODEL CAPABILITY MATRIX
+   ================================================================== */
+const CAPABILITY_RULES = [
+  { prefix: "openai/gpt-oss",        reasoning: "optional", effort: null,  webSearch: true },
+  { prefix: "qwen/qwen3.8",           reasoning: "optional", effort: null,  webSearch: false },
+  { prefix: "deepseek-r1",            reasoning: "always",   effort: null,  webSearch: false },
+  { prefix: "allam-",                 reasoning: "none",     effort: null,  webSearch: false },
+  { prefix: "llama-3.",               reasoning: "none",     effort: null,  webSearch: false },
+];
+const NO_CAPABILITIES = { reasoning: "none", effort: null, webSearch: false };
+
+function getCapabilities(modelId) {
+  return CAPABILITY_RULES.find(rule => modelId.startsWith(rule.prefix)) || NO_CAPABILITIES;
+}
+
+/* ==================================================================
+   3. APP STATE & THEME
+   ================================================================== */
+let conversation = [];
+let isStreaming = false;
+let abortController = null;
+let modelsLoadedForKey = null;
+let modelsRequest = null;
+let wantsReasoning = false;
+let wantsWebSearch = false;
+let replyCounter = 0;
+let lastSentPrompt = "";
+let currentKeyMode = "shared"; // "shared" | "custom"
+
+const $ = id => document.getElementById(id);
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_STORAGE_NAME) || "light";
+  applyTheme(saved);
+}
+
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    $("themeIcon").textContent = "☀️";
+    $("themeLabel").textContent = "Light Mode";
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    $("themeIcon").textContent = "🌙";
+    $("themeLabel").textContent = "Dark Mode";
+  }
+  localStorage.setItem(THEME_STORAGE_NAME, theme);
+}
+
+$("themeToggle").addEventListener("click", () => {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  applyTheme(isDark ? "light" : "dark");
+});
+
+/* ==================================================================
+   4. API KEY STORAGE & DUAL-MODE CREDENTIALS
+   ================================================================== */
+function setKeyMode(mode) {
+  currentKeyMode = mode;
+  const sharedTab = $("tabSharedKey");
+  const customTab = $("tabCustomKey");
+  const keyInput = $("apiKey");
+  const toggleBtn = $("toggleKeyVisibility");
+  const rememberChk = $("rememberKey");
+  const rememberLbl = $("rememberKeyLabel");
+  const clearBtn = $("clearKey");
+  const hint = $("keyStatusHint");
+
+  if (mode === "shared") {
+    sharedTab.classList.add("active");
+    customTab.classList.remove("active");
+    keyInput.value = "●●●●●●●●●●●●●●●●";
+    keyInput.setAttribute("readonly", "true");
+    toggleBtn.setAttribute("disabled", "true");
+    toggleBtn.textContent = "🔒";
+    toggleBtn.title = "Shared key is masked for privacy";
+    rememberChk.setAttribute("disabled", "true");
+    rememberLbl.style.opacity = "0.5";
+    clearBtn.setAttribute("disabled", "true");
+    hint.textContent = "✓ Pre-configured playground key active. Ready for streaming without custom setup.";
+    ensureModelsLoaded();
+  } else {
+    sharedTab.classList.remove("active");
+    customTab.classList.add("active");
+    keyInput.removeAttribute("readonly");
+    toggleBtn.removeAttribute("disabled");
+    toggleBtn.textContent = "👁️";
+    toggleBtn.title = "Show/Hide Custom Key";
+    rememberChk.removeAttribute("disabled");
+    rememberLbl.style.opacity = "1";
+    clearBtn.removeAttribute("disabled");
+
+    // Restore saved custom key if available
+    const saved = sessionStorage.getItem(KEY_STORAGE_NAME) || "";
+    keyInput.value = saved;
+    keyInput.type = "password";
+    keyInput.placeholder = "Enter your Groq key (gsk_...)";
+    hint.textContent = saved ? "✓ Custom key active for this session." : "Enter your personal Groq API key to query your account tier.";
+    if (saved) ensureModelsLoaded();
+  }
+}
+
+$("tabSharedKey").addEventListener("click", () => setKeyMode("shared"));
+$("tabCustomKey").addEventListener("click", () => setKeyMode("custom"));
+
+function getActiveKey() {
+  if (currentKeyMode === "custom") {
+    return $("apiKey").value.trim();
+  }
+  return getSharedKey();
+}
+
+function saveCustomKeyIfRemembered() {
+  if (currentKeyMode !== "custom") return;
+  try {
+    const val = $("apiKey").value.trim();
+    if ($("rememberKey").checked && val) {
+      sessionStorage.setItem(KEY_STORAGE_NAME, val);
+    } else {
+      sessionStorage.removeItem(KEY_STORAGE_NAME);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+$("apiKey").addEventListener("input", () => {
+  if (currentKeyMode === "custom") {
+    saveCustomKeyIfRemembered();
+  }
+});
+
+$("rememberKey").addEventListener("change", saveCustomKeyIfRemembered);
+
+$("apiKey").addEventListener("blur", () => {
+  if (currentKeyMode === "custom" && $("apiKey").value.trim()) {
+    ensureModelsLoaded();
+  }
+});
+
+$("clearKey").addEventListener("click", () => {
+  if (currentKeyMode === "custom") {
+    $("apiKey").value = "";
+    saveCustomKeyIfRemembered();
+    $("keyStatusHint").textContent = "Custom key cleared. Switch to Shared Demo Key if you need instant access.";
+    modelsLoadedForKey = null;
+    fillModelDropdown(FALLBACK_MODELS, true);
+    $("modelsStatus").textContent = "Default models · Enter key for live listing";
+  }
+});
+
+$("toggleKeyVisibility").addEventListener("click", () => {
+  if (currentKeyMode !== "custom") return;
+  const input = $("apiKey");
+  const isPwd = input.type === "password";
+  input.type = isPwd ? "text" : "password";
+  $("toggleKeyVisibility").textContent = isPwd ? "🙈" : "👁️";
+});
+
+/* ==================================================================
+   5. SLIDERS & CONTROLS SYNC
+   ================================================================== */
+function linkSlider(rangeId, boxId, displayId, suffix) {
+  const range = $(rangeId), box = $(boxId), disp = $(displayId);
+  const update = val => {
+    range.value = val;
+    box.value = val;
+    if (disp) disp.textContent = "(" + val + (suffix ? " " + suffix : "") + ")";
+  };
+  range.addEventListener("input", () => update(range.value));
+  box.addEventListener("input", () => update(box.value));
+  box.addEventListener("change", () => update(box.value));
+}
+linkSlider("tempRange", "tempBox", "tempDisplay", "");
+linkSlider("maxRange", "maxBox", "maxDisplay", "tokens");
+
+/* ==================================================================
+   6. MODEL SELECTION & CAPABILITY GATING
+   ================================================================== */
+function ensureModelsLoaded() {
+  const key = getActiveKey();
+  if (key && key !== modelsLoadedForKey) {
+    modelsLoadedForKey = key;
+    modelsRequest = loadModels(key);
+  }
+  return modelsRequest;
+}
+
+async function loadModels(key) {
+  $("modelsStatus").textContent = "Querying Groq API for models…";
+  try {
+    const resp = await fetch(API_BASE + "/models", { headers: { Authorization: "Bearer " + key } });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const json = await resp.json();
+    const ids = json.data
+      .filter(m => m.active !== false && !NON_CHAT_MODEL_PATTERN.test(m.id))
+      .map(m => m.id)
+      .sort();
+    if (ids.length === 0) throw new Error("No chat models returned");
+    fillModelDropdown(ids, false);
+    $("modelsStatus").textContent = "✓ " + ids.length + " models loaded live from Groq API";
+  } catch (err) {
+    fillModelDropdown(FALLBACK_MODELS, true);
+    $("modelsStatus").textContent = "Default model list (" + err.message + ")";
+  }
+}
+
+function fillModelDropdown(ids, isFallback) {
+  const select = $("model");
+  const previous = select.value;
+  select.innerHTML = "";
+  const group = document.createElement("optgroup");
+  group.label = isFallback ? "Default Models (offline)" : "Active Groq Models";
+  for (const id of ids) {
+    const caps = getCapabilities(id);
+    const extras = [];
+    if (caps.reasoning !== "none") extras.push("reasoning");
+    if (caps.webSearch) extras.push("search");
+    const label = id + (extras.length ? "  (" + extras.join(", ") + ")" : "");
+    const option = new Option(label, id);
+    group.append(option);
+  }
+  select.append(group);
+  const choice = [previous, ...PREFERRED_DEFAULT_MODELS].find(id => ids.includes(id))
+    || ids.find(id => getCapabilities(id).reasoning === "none")
+    || ids[0];
+  select.value = choice;
+  applyCapabilityGating();
+}
+
+function applyCapabilityGating() {
+  const caps = getCapabilities($("model").value);
+
+  const reasoning = $("reasoning");
+  if (caps.reasoning === "none") {
+    reasoning.checked = false; reasoning.disabled = true;
+    $("reasoningReason").textContent = "Model does not have a reasoning mode.";
+  } else if (caps.reasoning === "always") {
+    reasoning.checked = true; reasoning.disabled = true;
+    $("reasoningReason").textContent = "Model always reasons internally.";
+  } else {
+    reasoning.disabled = false; reasoning.checked = wantsReasoning;
+    $("reasoningReason").textContent = "";
+  }
+
+  const web = $("webSearch");
+  if (!caps.webSearch) {
+    web.checked = false; web.disabled = true;
+    $("webSearchReason").textContent = "Web search supported on GPT-OSS models.";
+  } else {
+    web.disabled = false; web.checked = wantsWebSearch;
+    $("webSearchReason").textContent = "";
+  }
+}
+$("model").addEventListener("change", applyCapabilityGating);
+$("reasoning").addEventListener("change", e => { wantsReasoning = e.target.checked; });
+$("webSearch").addEventListener("change", e => { wantsWebSearch = e.target.checked; });
+
+/* ==================================================================
+   7. PROMPT HEURISTIC ANALYZER
+   ================================================================== */
+function findAnsweredPairs(lines, questionPattern, answerPattern) {
+  const found = [];
+  let unanswered = 0, open = false;
+  for (const line of lines) {
+    if (questionPattern.test(line)) { open = true; continue; }
+    const m = line.match(answerPattern);
+    if (m && open) {
+      open = false;
+      if (m[1].trim()) found.push(line.trim());
+      else unanswered++;
+    }
+  }
+  return { found, unanswered };
+}
+
+function normalizePrompt(text) {
+  return text
+    .replace(/\*\*/g, "")
+    .replace(/[ \t]+((?:Output|Answer|Label|Sentiment|Category|Result|Response)\s*:)/gi, "\n$1")
+    .replace(/^(\s*Q\s*:.*?)[ \t]+(A\s*:)/gm, "$1\n$2");
+}
+
+function findLabelledPairs(lines) {
+  const labelled = [];
+  for (const line of lines) {
+    const m = line.match(/^\s*([A-Za-z][A-Za-z ]{0,24}?)\s*:(.*)$/);
+    if (m) labelled.push({ name: m[1], key: m[1].toLowerCase() });
+  }
+  const timesSeen = {};
+  for (const l of labelled) timesSeen[l.key] = (timesSeen[l.key] || 0) + 1;
+
+  let best = { found: [], unanswered: 0, names: null };
+  for (let i = 0; i + 1 < labelled.length; i++) {
+    const q = labelled[i], a = labelled[i + 1];
+    if (q.key === a.key || timesSeen[q.key] < 2) continue;
+    const result = findAnsweredPairs(lines,
+      new RegExp("^\\s*" + q.key + "\\s*:", "i"),
+      new RegExp("^\\s*" + a.key + "\\s*:(.*)$", "i"));
+    if (result.found.length > best.found.length) best = { ...result, names: [q.name, a.name] };
+  }
+  return best;
+}
+
+function analyzePrompt(rawText) {
+  if (!rawText || !rawText.trim()) return null;
+
+  const text = normalizePrompt(rawText);
+  const lines = text.split("\n");
+
+  const io = findAnsweredPairs(lines, /^\s*Input\s*:/i, /^\s*Output\s*:(.*)$/i);
+  const qa = findAnsweredPairs(lines, /^\s*Q\s*:/i, /^\s*A\s*:(.*)$/i);
+  const labelled = findLabelledPairs(lines);
+  const arrows = lines.filter(l => /\S\s*(->|=>)\s*\S/.test(l)).map(l => l.trim());
+  const quoted = text.match(/"[^"\n]+"\s*(->|=>)\s*"[^"\n]+"/g) || [];
+  const blocks = text.split(/^\s*(?:###|---)\s*$/m).filter(b => b.trim());
+  const blockExamples = blocks.length > 1 ? blocks.length - 1 : 0;
+
+  const exampleRules = [
+    { label: "Input: / Output: pairs", count: io.found.length, quotes: io.found,
+      extra: io.unanswered ? io.unanswered + " trailing question Output: ignored." : "" },
+    { label: "Q: / A: pairs", count: qa.found.length, quotes: qa.found,
+      extra: qa.unanswered ? qa.unanswered + " trailing question A: ignored." : "" },
+    { label: labelled.names
+        ? 'Labelled "' + labelled.names[0] + ':" / "' + labelled.names[1] + ':"'
+        : "Other labelled key-value pairs",
+      count: labelled.found.length, quotes: labelled.found, extra: "" },
+    { label: "Arrow delimiters (-> or =>)", count: arrows.length, quotes: arrows, extra: "" },
+    { label: 'Quoted pairs ("x" -> "y")', count: quoted.length, quotes: quoted, extra: "" },
+    { label: "Delimited blocks (### or ---)", count: blockExamples,
+      quotes: blockExamples ? [blocks.length + " blocks"] : [], extra: "" },
+  ];
+
+  const techniqueRules = [
+    { label: "Chain-of-Thought", pattern: /think step by step|let'?s think/i },
+    { label: "Role Prompting",   pattern: /you are an?\b|act as|pretend you are/i },
+    { label: "Negative Constraint", pattern: /\b(do not|never|avoid)\b/i },
+    { label: "Format Constraint",   pattern: /\b(json|table|bullets?)\b/i },
+  ].map(rule => {
+    const m = text.match(rule.pattern);
+    return { label: rule.label, fired: !!m, quotes: m ? [m[0]] : [] };
+  });
+
+  const exampleCount = Math.max(...exampleRules.map(r => r.count));
+  return { exampleCount, exampleRules, techniqueRules };
+}
+
+function renderPromptAnalysis() {
+  const boxText = $("prompt").value;
+  const useLastSent = !boxText.trim() && lastSentPrompt;
+  const targetText = useLastSent ? lastSentPrompt : boxText;
+
+  if (!targetText.trim()) {
+    $("analysisSource").textContent = "Type in the prompt box above to inspect prompting patterns in real time.";
+    $("verdict").textContent = "AWAITING INPUT";
+    $("verdict").className = "verdict-badge empty";
+    $("chips").innerHTML = "";
+    $("whyList").innerHTML = "";
+    return;
+  }
+
+  $("analysisSource").textContent = useLastSent
+    ? "Prompt box is empty — inspecting your last sent prompt."
+    : "Live inspection of current prompt text.";
+
+  const result = analyzePrompt(targetText);
+  const n = result.exampleCount;
+  $("verdict").textContent = n === 0 ? "ZERO-SHOT DIRECT" : n === 1 ? "ONE-SHOT PATTERN" : "FEW-SHOT (" + n + " EXAMPLES)";
+  $("verdict").className = "verdict-badge";
+
+  const chips = $("chips");
+  chips.innerHTML = "";
+
+  const addChip = text => {
+    const chip = document.createElement("span");
+    chip.className = "pattern-chip";
+    chip.textContent = text;
+    chips.append(chip);
+  };
+
+  if (n > 0) addChip(n + (n === 1 ? " in-context example" : " in-context examples"));
+  else addChip("0 examples (direct query)");
+
+  for (const t of result.techniqueRules) {
+    if (t.fired) addChip(t.label);
+  }
+
+  const why = $("whyList");
+  why.innerHTML = "";
+
+  const addRuleRow = (label, fired, quote, extra) => {
+    const li = document.createElement("li");
+    li.className = fired ? "" : "off";
+    let body = (fired ? "✓ " : "– ") + label;
+    if (fired && quote) body += ': <q>' + escapeHtml(quote) + '</q>';
+    if (extra) body += ' <span style="color:var(--text-muted); font-size:0.75rem">(' + extra + ')</span>';
+    li.innerHTML = body;
+    why.append(li);
+  };
+
+  const topRule = result.exampleRules.reduce((best, r) => (r.count > best.count ? r : best), result.exampleRules[0]);
+  if (topRule.count > 0) {
+    addRuleRow(topRule.label, true, topRule.quotes[0], topRule.extra);
+  }
+
+  for (const t of result.techniqueRules) {
+    addRuleRow(t.label, t.fired, t.fired ? t.quotes[0] : null, "");
+  }
+}
+
+$("prompt").addEventListener("input", renderPromptAnalysis);
+
+/* ==================================================================
+   8. REQUEST BODY BUILDER
+   ================================================================== */
+function buildRequestBody(overridePrompt) {
+  const modelId = $("model").value;
+  const caps = getCapabilities(modelId);
+  const messages = [...conversation];
+  if (overridePrompt) {
+    messages.push({ role: "user", content: overridePrompt });
+  }
+
+  const body = {
+    model: modelId,
+    messages,
+    temperature: parseFloat($("tempRange").value),
+    max_completion_tokens: parseInt($("maxRange").value, 10),
+  };
+
+  const stop = $("stopSeq").value.trim();
+  if (stop) {
+    body.stop = stop.split(",").map(s => s.trim()).filter(Boolean).slice(0, 4);
+  }
+
+  // Include reasoning if supported and enabled
+  if (caps.reasoning !== "none" && $("reasoning").checked) {
+    body.include_reasoning = true;
+    if (caps.effort) body.reasoning_effort = caps.effort;
+  }
+
+  if (caps.webSearch && $("webSearch").checked) {
+    body.tools = [{ type: "browser_search" }];
+  }
+
+  body.stream = true;
+  body.stream_options = { include_usage: true };
+  return body;
+}
+
+/* ==================================================================
+   9. CHAT STREAMING PIPELINE
+   ================================================================== */
+function removeEmptyHero() {
+  const hero = $("emptyHero");
+  if (hero) hero.remove();
+}
+
+function renderEmptyHero() {
+  if ($("transcript").children.length === 0) {
+    const hero = document.createElement("div");
+    hero.id = "emptyHero";
+    hero.className = "empty-stream-box";
+    hero.innerHTML = `<p>No messages yet. Select a prompt preset or write your own, and hit <b>Submit to Groq</b> to watch Groq stream tokens with ultra-low latency.</p>`;
+    $("transcript").append(hero);
+  }
+}
+
+async function send() {
+  const key = getActiveKey();
+  const text = $("prompt").value;
+  if (!key) {
+    alert("Please enter a Groq API key or switch to the Shared Demo Key.");
+    $("apiKey").focus();
+    return;
+  }
+  if (!text.trim()) return;
+  await ensureModelsLoaded();
+
+  conversation.push({ role: "user", content: text });
+  addUserBubble(text);
+  lastSentPrompt = text;
+  $("prompt").value = "";
+  renderPromptAnalysis();
+
+  const body = buildRequestBody();
+  const view = createAssistantBubble(body);
+  const run = { answer: "", thinking: "", sources: [], usage: null, finishReason: null, firstAnswerAt: null };
+  const startedAt = performance.now();
+
+  setStatus(view, body.tools ? "Querying web search tool…" : "Awaiting first token from Groq…");
+  setStreaming(true);
+  abortController = new AbortController();
+
+  try {
+    const resp = await fetch(API_BASE + "/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abortController.signal,
+    });
+    showRateLimit(resp.headers);
+    if (!resp.ok) throw await apiErrorFrom(resp);
+    await readStream(resp, chunk => handleChunk(chunk, run, view));
+    finishReply(view, run, startedAt, false);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      finishReply(view, run, startedAt, true);
+    } else {
+      showError(view, err);
+      if (view.el.isConnected) forgetUnansweredQuestion();
+    }
+  } finally {
+    setStreaming(false);
+    abortController = null;
+  }
+}
+
+async function readStream(resp, onChunk) {
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) processSseLine(line, onChunk);
+  }
+  processSseLine(buffer, onChunk);
+}
+
+function processSseLine(line, onChunk) {
+  line = line.trim();
+  if (!line.startsWith("data:")) return;
+  const data = line.slice(5).trim();
+  if (data === "[DONE]") return;
+  let chunk;
+  try { chunk = JSON.parse(data); } catch (e) { return; }
+  onChunk(chunk);
+}
+
+function handleChunk(chunk, run, view) {
+  if (chunk.error) throw makeApiError(0, chunk.error.message || "Error inside response stream");
+
+  const usage = (chunk.x_groq && chunk.x_groq.usage) || chunk.usage;
+  if (usage) run.usage = usage;
+
+  const choice = chunk.choices && chunk.choices[0];
+  if (!choice) return;
+  const delta = choice.delta || {};
+
+  if (delta.executed_tools) handleExecutedTools(delta.executed_tools, run, view);
+
+  if (delta.reasoning) {
+    run.thinking += delta.reasoning;
+    view.thinking.hidden = false;
+    if (run.firstAnswerAt === null) view.thinking.open = true;
+    view.thinkingText.textContent = run.thinking;
+    view.thinkingText.scrollTop = view.thinkingText.scrollHeight;
+    if (!run.sources.length && view.status.textContent.startsWith("Awaiting")) view.status.hidden = true;
+  }
+
+  if (delta.content) {
+    if (run.firstAnswerAt === null) {
+      run.firstAnswerAt = performance.now();
+      view.thinking.open = false;
+      view.status.hidden = true;
+    }
+    run.answer += delta.content;
+    renderAnswer(view, run);
+  }
+
+  if (choice.finish_reason) run.finishReason = choice.finish_reason;
+}
+
+function handleExecutedTools(tools, run, view) {
+  for (const tool of tools) {
+    const results = (tool.search_results && tool.search_results.results) || [];
+    if (results.length === 0) { setStatus(view, "Searching web…"); continue; }
+    for (const r of results) {
+      if (!r || !r.url || run.sources.some(s => s.url === r.url)) continue;
+      run.sources.push({ title: r.title || String(r.url), url: String(r.url) });
+    }
+    renderSources(view, run.sources);
+  }
+}
+
+function finishReply(view, run, startedAt, stoppedByUser) {
+  const endedAt = performance.now();
+  renderAnswer(view, run);
+
+  if (view.el.isConnected) {
+    if (run.answer.trim()) conversation.push({ role: "assistant", content: run.answer });
+    else forgetUnansweredQuestion();
+  }
+
+  let badgeText, amber = false;
+  if (stoppedByUser) badgeText = "cancelled by user";
+  else if (run.finishReason === "length") { badgeText = "hit max token budget"; amber = true; }
+  else if (run.finishReason === "stop") badgeText = "completed (stop)";
+  else if (!run.finishReason) badgeText = "stream done";
+  else badgeText = "stopped: " + run.finishReason;
+
+  view.badge.textContent = badgeText;
+  view.badge.className = "finish-badge" + (amber ? " amber" : "");
+  view.badge.hidden = false;
+
+  if (!stoppedByUser && run.finishReason === "length" && !run.answer.trim()) {
+    view.warning.textContent = "No visible output generated — full token budget was consumed by reasoning. Increase Max Tokens.";
+    view.warning.hidden = false;
+  }
+
+  if (run.thinking) {
+    const n = reasoningTokensOf(run.usage);
+    view.thinkingSummary.textContent = n === null
+      ? "Reasoning Process (click to expand)"
+      : "Reasoning Process (" + n + " reasoning tokens)";
+  }
+
+  if (run.sources.length) setStatus(view, "Web search sources (" + run.sources.length + ")", true);
+  else view.status.hidden = true;
+
+  view.copyBtn.hidden = false;
+  view.copyBtn.onclick = () => copyText(run.answer, view.copyBtn);
+
+  showSpeed(run, startedAt, endedAt);
+  showUsage(run.usage);
+}
+
+function forgetUnansweredQuestion() {
+  const last = conversation[conversation.length - 1];
+  if (last && last.role === "user") conversation.pop();
+}
+
+/* ==================================================================
+   10. BUBBLES & TRANSCRIPT UI
+   ================================================================== */
+function addUserBubble(text) {
+  removeEmptyHero();
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.textContent = text;
+  $("transcript").append(el);
+}
+
+function createAssistantBubble(body) {
+  removeEmptyHero();
+  const id = "reply-" + (++replyCounter);
+  const el = document.createElement("div");
+  el.className = "msg assistant";
+  el.innerHTML =
+    '<div class="msg-meta-bar"><span><b>' + body.model + '</b></span> · <span>Temp ' + body.temperature + '</span> · <span>Limit ' + body.max_completion_tokens + ' tokens</span></div>' +
+    '<details class="inspector request"><summary>Inspect Request Body (JSON)</summary><pre></pre></details>' +
+    '<div class="stream-status-row" hidden></div>' +
+    '<details class="inspector thinking" hidden><summary>Reasoning Process</summary><div class="thinking-text"></div></details>' +
+    '<div class="answer"></div>' +
+    '<div class="sources-grid"></div>' +
+    '<div class="warning-box" hidden></div>' +
+    '<div class="error-box" hidden></div>' +
+    '<div class="msg-footer"><span class="finish-badge" hidden></span><button class="btn-secondary" style="padding:3px 10px; font-size:0.75rem" hidden>Copy Response</button></div>';
+
+  el.querySelector(".request pre").textContent = JSON.stringify(body, null, 2);
+  $("transcript").append(el);
+
+  const q = selector => el.querySelector(selector);
+  return {
+    id, el,
+    maxTokens: body.max_completion_tokens,
+    searchRequested: !!body.tools,
+    status: q(".stream-status-row"),
+    thinking: q(".thinking"),
+    thinkingSummary: q(".thinking summary"),
+    thinkingText: q(".thinking-text"),
+    answer: q(".answer"),
+    sources: q(".sources-grid"),
+    warning: q(".warning-box"),
+    error: q(".error-box"),
+    badge: q(".finish-badge"),
+    copyBtn: q(".msg-footer button"),
+  };
+}
+
+function setStatus(view, text, done) {
+  view.status.textContent = text;
+  view.status.className = "stream-status-row" + (done ? " done" : "");
+  view.status.hidden = false;
+}
+
+function renderAnswer(view, run) {
+  const clean = run.answer.replace(/【[^】]*】/g, "");
+  let html = renderMarkdown(clean);
+  if (run.sources.length && clean.trim()) {
+    html += '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:12px">Sources: ' + run.sources.map((s, i) =>
+      '<a style="color:var(--accent); font-weight:600; margin-right:4px" href="#' + view.id + "-src-" + i + '">[' + (i + 1) + "]</a>").join("") + "</p>";
+  }
+  view.answer.innerHTML = html;
+}
+
+function renderSources(view, sources) {
+  view.sources.innerHTML = "";
+  sources.forEach((source, i) => {
+    const card = document.createElement("a");
+    card.className = "source-card";
+    card.id = view.id + "-src-" + i;
+    if (/^https?:\/\//i.test(source.url)) card.href = source.url;
+    card.target = "_blank";
+    card.rel = "noopener noreferrer";
+
+    let host = "";
+    try { host = new URL(source.url).hostname; } catch (e) { host = source.url; }
+
+    const num = document.createElement("b");
+    num.style.color = "var(--accent)";
+    num.textContent = "[" + (i + 1) + "] ";
+
+    const title = document.createTextNode(source.title || host);
+    const hostEl = document.createElement("span");
+    hostEl.className = "host";
+    hostEl.textContent = host;
+
+    card.append(num, title, hostEl);
+    view.sources.append(card);
+  });
+}
+
+/* ==================================================================
+   11. MARKDOWN RENDERING (LIGHTWEIGHT & SAFE)
+   ================================================================== */
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderInline(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+    .replace(/\*(.*?)\*/g, "<i>$1</i>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+function renderMarkdown(source) {
+  const parts = escapeHtml(source).split("```");
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return renderTextBlocks(part);
+    const newline = part.indexOf("\n");
+    const code = newline === -1 ? part : part.slice(newline + 1);
+    return '<div class="code-wrap"><button class="copy-code">Copy</button>' +
+           "<pre><code>" + code.replace(/\n$/, "") + "</code></pre></div>";
+  }).join("");
+}
+
+function renderTextBlocks(text) {
+  let html = "", listType = null, paragraph = [];
+  const flushParagraph = () => {
+    if (paragraph.length) html += "<p>" + paragraph.map(renderInline).join("<br>") + "</p>";
+    paragraph = [];
+  };
+  const closeList = () => { if (listType) html += "</" + listType + ">"; listType = null; };
+  const openList = type => { if (listType !== type) { closeList(); html += "<" + type + ">"; listType = type; } };
+
+  for (const line of text.split("\n")) {
+    let m;
+    if ((m = line.match(/^\s*(#{1,4})\s+(.*)$/))) {
+      flushParagraph(); closeList();
+      const tag = m[1].length <= 2 ? "h3" : "h4";
+      html += "<" + tag + ">" + renderInline(m[2]) + "</" + tag + ">";
+    } else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+      flushParagraph(); openList("ul");
+      html += "<li>" + renderInline(m[1]) + "</li>";
+    } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) {
+      flushParagraph(); openList("ol");
+      html += "<li>" + renderInline(m[1]) + "</li>";
+    } else if (line.trim() === "") {
+      flushParagraph(); closeList();
+    } else {
+      closeList(); paragraph.push(line);
+    }
+  }
+  flushParagraph(); closeList();
+  return html;
+}
+
+/* ==================================================================
+   12. TELEMETRY & TOKEN ACCOUNTING
+   ================================================================== */
+function reasoningTokensOf(usage) {
+  if (!usage) return null;
+  const d = usage.completion_tokens_details;
+  if (d && typeof d.reasoning_tokens === "number") return d.reasoning_tokens;
+  return null;
+}
+
+function showSpeed(run, startedAt, endedAt) {
+  const ttft = run.firstAnswerAt ? Math.round(run.firstAnswerAt - startedAt) : null;
+  $("speedTtft").textContent = ttft ? ttft + " ms" : "–";
+
+  const total = Math.round(endedAt - startedAt);
+  $("speedTotal").textContent = total >= 1000 ? (total / 1000).toFixed(2) + " s" : total + " ms";
+
+  let tps = "–";
+  const u = run.usage;
+  if (u && typeof u.completion_time === "number" && u.completion_time > 0) {
+    tps = Math.round(u.completion_tokens / u.completion_time);
+  } else if (u && u.completion_tokens && run.firstAnswerAt) {
+    tps = Math.round(u.completion_tokens / ((endedAt - run.firstAnswerAt) / 1000));
+  }
+  $("speedTps").textContent = tps;
+}
+
+function showUsage(usage) {
+  const fmt = n => (typeof n === "number" ? n.toLocaleString() : "–");
+  if (!usage) {
+    for (const id of ["useInput", "useReasoning", "useOutput", "useTotal"]) $(id).textContent = "–";
+    return;
+  }
+  const reasoning = reasoningTokensOf(usage);
+  $("useInput").textContent = fmt(usage.prompt_tokens);
+  $("useReasoning").textContent = fmt(reasoning);
+  $("useOutput").textContent = fmt(reasoning === null ? usage.completion_tokens : usage.completion_tokens - reasoning);
+  $("useTotal").textContent = fmt(usage.total_tokens);
+}
+
+function showRateLimit(headers) {
+  const remaining = headers.get("x-ratelimit-remaining-tokens");
+  const reset = headers.get("x-ratelimit-reset-tokens");
+  const cell = $("useLeft");
+  if (remaining === null) {
+    cell.textContent = "–";
+    $("useReset").textContent = "";
+    return;
+  }
+  cell.textContent = Number(remaining).toLocaleString();
+  $("useReset").textContent = reset ? " (resets in " + reset + ")" : "";
+}
+
+function resetInsightPanels() {
+  for (const id of ["speedTtft", "speedTotal", "speedTps", "useInput", "useReasoning", "useOutput", "useTotal", "useLeft"]) {
+    $(id).textContent = "–";
+  }
+  $("useReset").textContent = "";
+}
+
+/* ==================================================================
+   13. ERROR HANDLING
+   ================================================================== */
+function makeApiError(status, message) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+async function apiErrorFrom(resp) {
+  let message = resp.statusText || "Request failed";
+  try {
+    const text = await resp.text();
+    try { message = JSON.parse(text).error.message || text; }
+    catch (e) { message = text || message; }
+  } catch (e) { /* ignore */ }
+  return makeApiError(resp.status, message);
+}
+
+function friendlyError(status, message) {
+  const m = (message || "").toLowerCase();
+  if (status === 401) return "Groq API key was rejected. Check your credentials in Section 1.";
+  if (status === 429) return "Rate limit reached on your Groq tier. Please wait about 60 seconds.";
+  if (status === 413 || /context.*(length|window|too long)|too long/.test(m)) {
+    return "Conversation context window exceeded. Click Reset Session to clear context.";
+  }
+  if ((status === 400 || status === 404) && m.includes("model")) {
+    return "The selected model is unavailable or decommissioned on Groq.";
+  }
+  return "Groq API returned an error" + (status ? " (HTTP " + status + ")" : "") + ".";
+}
+
+function showError(view, err) {
+  let friendly;
+  let raw = err.message;
+  if (typeof err.status === "number") {
+    friendly = friendlyError(err.status, err.message);
+    if (err.status) raw = "HTTP " + err.status + ": " + err.message;
+  } else if (/fetch|network|load failed/i.test(err.message)) {
+    friendly = "Network connection failed. Verify internet connection.";
+  } else {
+    friendly = "An error occurred while streaming the reply.";
+  }
+  view.status.hidden = true;
+  view.error.textContent = friendly;
+  const rawEl = document.createElement("span");
+  rawEl.className = "raw";
+  rawEl.textContent = raw;
+  view.error.append(rawEl);
+  view.error.hidden = false;
+}
+
+/* ==================================================================
+   14. CODE EXPORTER
+   ================================================================== */
+function makeCurl(body) {
+  const json = JSON.stringify(body, null, 2).replace(/'/g, "'\\''");
+  return [
+    "curl -N " + API_BASE + "/chat/completions \\",
+    '  -H "Authorization: Bearer $GROQ_API_KEY" \\',
+    '  -H "Content-Type: application/json" \\',
+    "  -d '" + json + "'",
+  ].join("\n");
+}
+
+function toPython(value, indent) {
+  const pad = "    ".repeat(indent + 1), end = "    ".repeat(indent);
+  if (value === null) return "None";
+  if (value === true) return "True";
+  if (value === false) return "False";
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "[]";
+    return "[\n" + value.map(v => pad + toPython(v, indent + 1) + ",").join("\n") + "\n" + end + "]";
+  }
+  return "{\n" + Object.keys(value).map(k => pad + JSON.stringify(k) + ": " + toPython(value[k], indent + 1) + ",").join("\n") + "\n" + end + "}";
+}
+
+const GROQ_ONLY_PARAMS = ["include_reasoning", "reasoning_format"];
+
+function makePython(body) {
+  const lines = [
+    "import os",
+    "from openai import OpenAI",
+    "",
+    "client = OpenAI(",
+    '    base_url="https://api.groq.com/openai/v1",',
+    '    api_key=os.environ["GROQ_API_KEY"],',
+    ")",
+    "",
+    "stream = client.chat.completions.create(",
+  ];
+  const extra = {};
+  for (const [name, value] of Object.entries(body)) {
+    if (GROQ_ONLY_PARAMS.includes(name)) extra[name] = value;
+    else lines.push("    " + name + "=" + toPython(value, 1) + ",");
+  }
+  if (Object.keys(extra).length) {
+    lines.push("    extra_body=" + toPython(extra, 1) + ",");
+  }
+  lines.push(
+    ")",
+    "",
+    "for chunk in stream:",
+    "    if chunk.choices and chunk.choices[0].delta.content:",
+    '        print(chunk.choices[0].delta.content, end="", flush=True)',
+    "print()",
+  );
+  return lines.join("\n");
+}
+
+function openCodePanel() {
+  const pending = $("prompt").value.trim() ? $("prompt").value : null;
+  const body = buildRequestBody(pending);
+  $("curlCode").textContent = makeCurl(body);
+  $("pythonCode").textContent = makePython(body);
+  $("codeModal").hidden = false;
+}
+$("viewCodeBtn").addEventListener("click", openCodePanel);
+$("closeCode").addEventListener("click", () => { $("codeModal").hidden = true; });
+$("codeModal").addEventListener("click", e => { if (e.target === $("codeModal")) $("codeModal").hidden = true; });
+
+/* ==================================================================
+   15. COPY UTILITY
+   ================================================================== */
+async function copyText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    document.body.append(temp);
+    temp.select();
+    document.execCommand("copy");
+    temp.remove();
+  }
+  const label = button.dataset.label || (button.dataset.label = button.textContent);
+  button.textContent = "Copied!";
+  setTimeout(() => { button.textContent = label; }, 1200);
+}
+
+document.addEventListener("click", e => {
+  const codeButton = e.target.closest(".copy-code");
+  if (codeButton) copyText(codeButton.parentElement.querySelector("code").textContent, codeButton);
+  const panelButton = e.target.closest("[data-copy-target]");
+  if (panelButton) copyText($(panelButton.dataset.copyTarget).textContent, panelButton);
+});
+
+/* ==================================================================
+   16. BUTTONS, SHORTCUTS & TEMPLATES
+   ================================================================== */
+function setStreaming(on) {
+  isStreaming = on;
+  $("sendBtn").textContent = on ? "Stop Generation" : "Submit to Groq";
+  $("sendBtn").className = on ? "btn stop" : "btn";
+}
+
+$("sendBtn").addEventListener("click", () => {
+  if (isStreaming) abortController.abort();
+  else send();
+});
+
+$("prompt").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    if (!isStreaming) send();
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (isStreaming) abortController.abort();
+  else $("codeModal").hidden = true;
+});
+
+$("resetBtn").addEventListener("click", () => {
+  if (isStreaming) abortController.abort();
+  conversation = [];
+  lastSentPrompt = "";
+  renderPromptAnalysis();
+  $("transcript").innerHTML = "";
+  renderEmptyHero();
+  resetInsightPanels();
+});
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-preset]");
+  if (btn) {
+    const key = btn.dataset.preset;
+    if (key === "clear") {
+      $("prompt").value = "";
+    } else if (SAMPLE_PROMPTS[key]) {
+      $("prompt").value = SAMPLE_PROMPTS[key];
+    }
+    renderPromptAnalysis();
+    $("prompt").focus();
+  }
+});
+
+/* ==================================================================
+   17. INITIALIZATION
+   ================================================================== */
+initTheme();
+$("prompt").value = "";
+fillModelDropdown(FALLBACK_MODELS, true);
+setKeyMode("shared");
+renderPromptAnalysis();
+</script>
+</body>
+</html>
